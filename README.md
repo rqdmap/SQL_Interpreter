@@ -1,2 +1,2 @@
 # SQL_Interpreter
-Use Lex&amp;Yacc&amp;C++ to implement SQL Interpreter.
+A quite simple SQL interpreter using lex, yacc and c++.

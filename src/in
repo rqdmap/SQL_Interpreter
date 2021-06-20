@@ -1,0 +1,6 @@
+create database MyDataBase;
+use database MyDataBase;
+create table MyTable(
+    age int, 
+    name char(100)
+);

@@ -1,0 +1,4 @@
+#!/bin/bash
+rm -r DBMS/
+mkdir DBMS
+touch DBMS/.dbinfo

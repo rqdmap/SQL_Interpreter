@@ -3,7 +3,13 @@
 #define INT 1
 #define CHAR 2
 
-List dbs, temp;
+#define BELOW 1
+#define EQU 2
+
+#define AND 1
+#define OR 2
+
+List dbs, temp, cons;
 DATABASE *current_database;
 
 char buf[100000];
@@ -20,7 +26,7 @@ char* itoa(int __x){
     return res;
 }
 
-void pprt(int num, char c){while(num--) printf("%c", c);}
+void pprt(int num, char c){assert(num >= 0); while(num--) printf("%c", c);}
 
 int max(int a, int b){return a > b? a: b;}
 int min(int a, int b){return a < b? a: b;}
@@ -47,7 +53,8 @@ void read(){
     FILE *in = fopen(fileName.c_str(), "rb");
     while(~fscanf(in, "%s", buf)){
         DATABASE *now = new DATABASE();
-        now->name = strdup(buf);
+        now->name = (char*)malloc(strlen(buf) + 1);
+        memset(now->name, 0, strlen(buf) + 1); strcpy(now->name, buf);
         now->read();
         dbs.push_back(now, sizeof(DATABASE));
     }
@@ -65,7 +72,7 @@ void write(){
     }
 }
 
-ListElement* find_database(const char* databaseName){
+ListElement* find_database(const char* databaseName, int bytes){
     ListElement* res = dbs.front;
     while(res != NULL){
         DATABASE* now = (DATABASE*)res->val;
@@ -75,8 +82,8 @@ ListElement* find_database(const char* databaseName){
     return NULL;
 }
 
-int create_database(const char* databaseName){
-    if(find_database(databaseName)) return 0;
+int create_database(const char* databaseName, int bytes){
+    if(find_database(databaseName, bytes)) return 0;
     
     //Update FS
     std::string cmd = "mkdir DBMS/"; cmd +=databaseName;
@@ -86,20 +93,22 @@ int create_database(const char* databaseName){
 
     //Update List infomation
     DATABASE *now = new DATABASE();
-    now->name = strdup(databaseName);
+    now->name = (char*)malloc(strlen(databaseName) + 1);
+    memset(now->name, 0, strlen(databaseName) + 1);
+    strcpy(now->name, databaseName);
     dbs.push_back(now, sizeof(DATABASE));
     return 1;
 }
 
-int use_database(const char* databaseName){
-    ListElement *elem = find_database(databaseName);
+int use_database(const char* databaseName, int bytes){
+    ListElement *elem = find_database(databaseName, bytes);
     if(elem == NULL) return 0;
     current_database = (DATABASE*)(elem->val);
     return 1;
 }
 
-int drop_database(const char* databaseName){
-    ListElement *elem = find_database(databaseName);
+int drop_database(const char* databaseName, int bytes){
+    ListElement *elem = find_database(databaseName, bytes);
     if(elem == NULL) return 0;
 
     //Update FS
@@ -129,12 +138,13 @@ int drop_database(const char* databaseName){
     +--------------------+
  */
 void show_databases(){
-    int width = 0;
+    int width = 4 + 8;
     ListElement *elem = dbs.front;
     while(elem != NULL){
         width = max(width, (int)strlen(((DATABASE*)(elem->val))->name) + 6);
         elem = elem->next;
     }
+    printf("%d\n", width);
 
     printf("+"); pprt(width - 2, '-'); printf("+\n");
     printf("| Database"); pprt(width - 12, ' '); printf(" |\n");
@@ -159,8 +169,14 @@ void DATABASE::read(){
 
     while(~fscanf(in, "%s", buf)){
         TABLE *now = new TABLE();
-        now->name = strdup(buf);
-        now->belong_to_db = strdup(name);
+        now->name = (char*)malloc(strlen(buf) + 1);
+        memset(now->name, 0, strlen(buf) + 1);
+        strcpy(now->name, buf);
+
+        now->belong_to_db = (char*)malloc(strlen(name) + 1);
+        memset(now->belong_to_db, 0, strlen(name) + 1);
+        strcpy(now->belong_to_db, name);
+        
         now->read();
         table.push_back(now, sizeof(TABLE));
     }
@@ -178,12 +194,12 @@ void DATABASE::write(){
     }
 }
 
-ListElement* DATABASE::find_table(const char* tableName){
+ListElement* DATABASE::find_table(const char* tableName, int bytes){
 
     ListElement *res = table.front;
     while(res != NULL){
         TABLE *now = (TABLE*)res->val;
-        if(!strcmp(now->name, tableName)) return res;
+        if(!strncmp(now->name, tableName, bytes)) return res;
         res = res->next;
     }
     return NULL;
@@ -227,16 +243,16 @@ void DATABASE::show_tables(){
     printf("+"); pprt(width - 2, '-'); printf("+\n");
 }
 
-int DATABASE::desc_table(const char *tableName){
-    ListElement *res = find_table(tableName);
+int DATABASE::desc_table(const char *tableName, int bytes){
+    ListElement *res = find_table(tableName, bytes);
     if(res == NULL) return 0;
 
     ((TABLE*)(res->val))->desc();
     return 1;
 }
 
-int DATABASE::drop_table(const char *tableName){
-    ListElement *elem = find_table(tableName);
+int DATABASE::drop_table(const char *tableName, int bytes){
+    ListElement *elem = find_table(tableName, bytes);
     if(elem == NULL) return 0;
 
     std::string fileName = "rm DBMS/"; fileName += name; fileName += "/"; fileName += tableName;     
@@ -285,11 +301,14 @@ void TABLE::read(){
     for(int i = 0; i < fieldNumber; i++){
         FIELD *now = new FIELD();
         int bytes; fread(&bytes, 4, 1, in);
-        fread(buf, bytes, 1, in);
+        fread(buf, bytes, 1, in); buf[bytes] = 0;
         fread(&now->bytes, 4, 1, in);
         fread(&now->type, 4, 1, in);
 
-        now->name = strdup(buf);
+        now->name = (char*)malloc(strlen(buf) + 1);
+        memset(now->name, 0, strlen(buf) + 1);
+        strcpy(now->name, buf);
+
         field.push_back(now, sizeof(FIELD));
     }
     fread(&turpleNumber, 4, 1, in);
@@ -385,6 +404,127 @@ void TABLE::desc(){
     printf("+"); pprt(w1 - 2, '-'); printf("+"); pprt(w2 - 2, '-'); printf("+\n");
 }
 
+/*
+    根据cons检查所有的元组，返回一个满足条件的候选List
+    不做类型检查，输入应当合法。
+*/
+List* TABLE::check_all_turple(){
+    if(cons.length == 0){
+        return &turpleEntry;
+    }
+    List *ok = new List;
+    
+    ListElement *turpleElem = turpleEntry.front;
+    ListElement *elem;
+    while(turpleElem != NULL){
+        
+        //建立__cons链表，链表元素为所有cons的ListElem指针,避免每次都进行cons的复制
+        List *__cons = new List;
+        elem = cons.front;
+        while(elem != NULL){
+            __cons->push_back(&elem, sizeof(void*));
+            elem = elem->next;
+        }
+
+        List *turple = (List*)turpleElem->val;
+
+        elem = __cons->front; 
+        while(elem != NULL){
+            ListElement *cond_elem = (*(ListElement**)elem->val);
+            //提取该位置前两个elem，并将自身改造为0、1的常值1
+            if(cond_elem->bytes == 1){
+                if(elem->pre == NULL || elem->pre->pre == NULL){
+                    puts("前方元素不足两个!");
+                    return NULL;
+                }
+                int val1 = check_turple(turple, elem->pre->pre);
+                if(val1 == -1) return NULL;
+                int val2 = check_turple(turple, elem->pre);
+                if(val2 == -1) return NULL;
+                
+                if(((char*)cond_elem->val)[0] == AND) val1 &= val2;
+                else if(((char*)cond_elem->val)[0] == OR) val1 |= val2;
+
+                __cons->erase(elem->pre); __cons->erase(elem->pre);
+                elem->bytes = 2; elem->val = realloc(elem->val, 2); ((char*)elem->val)[0] = (char)val1;
+            }
+            elem = elem->next;
+        }
+        assert(__cons->length == 1);
+        elem = __cons->front;
+
+        if(elem->bytes == 2){
+            //栈顶为真值1
+            if(((char*)elem->val)[0]) ok->push_back(turple, sizeof(List));
+        }
+        else{
+            int res = check_turple(turple, elem);
+            if(res == -1) return NULL;
+            if(res) ok->push_back(turple, sizeof(List));
+        }
+
+        turpleElem = turpleElem->next;
+    }
+
+    return ok;
+}
+
+/*
+    return 0/1 indicating false/true, -1 invalid
+*/
+int TABLE::check_turple(List *turple, ListElement *elem){
+    assert(elem->bytes == 2 || elem->bytes == 8);
+
+    if(elem->bytes == 2) return ((char*)elem->val)[0];
+
+    ListElement* conElem = *(ListElement**)elem->val;
+    CONDITION *con = (CONDITION*)conElem->val;
+    char *p, *q;
+    ListElement *value_elem = turple->front;
+    ListElement *field_elem = field.front;
+
+    // DEBUG; show_con(conElem);
+
+    assert(turple->length == field.length);
+    while(value_elem != NULL){
+        FIELD* f = (FIELD*)field_elem->val;
+        if(!strcmp(f->name, (char*)con->lval)){
+            if(value_elem->bytes == 0){
+                printf("Field %s not initialize yet!\n", f->name);
+                return -1;
+            }
+            if(f->type == INT){
+                int val = *(int*)(value_elem->val);
+                q = (char*)con->rval;
+                int num = 0; for(int i = 0; i < con->rbytes; i++){num *= 10; num += q[i] - '0';}
+
+                // DEBUG; printf("%d %d %d\n", val, num, con->cmp);
+                if(con->cmp == BELOW) return val < num;
+                else if(con->cmp == EQU) return val == num;
+            }
+            else if(f->type == CHAR){
+                p = (char*)value_elem->val; p++; p[strlen(p) - 1] = 0;
+                q = (char*)con->rval; q++; q[strlen(q) - 1] = 0;
+
+                int res;
+                if(con->cmp == BELOW) res = strcmp(p, q) < 0;
+                else if(con->cmp == EQU) res = strcmp(p, q) == 0;
+
+                p[strlen(p)] = '"';
+                q[strlen(q)] = '"';
+
+                return res;
+            }
+            else{
+                puts("Bad Type.");
+                return -1;
+            }
+        }
+        value_elem = value_elem->next;
+        field_elem = field_elem->next;
+    }
+    return -1;
+}
 
 
 
@@ -401,18 +541,26 @@ int temp_create_table(){
 
     ListElement* elem = temp.front; 
     char *p = (char*)elem->val;
-    if(current_database->find_table(p) != NULL) return 0;
+    if(current_database->find_table(p, elem->bytes) != NULL) return 0;
 
     TABLE *now = new TABLE();
-    now->name = strdup(p);
-    now->belong_to_db = strdup(current_database->name);
+    now->name = (char*)malloc(strlen(p) + 1);
+    memset(now->name, 0, strlen(p) + 1);
+    strcpy(now->name, p);
+
+    now->belong_to_db = (char*)malloc(strlen(current_database->name) + 1);
+    memset(now->belong_to_db, 0, strlen(current_database->name) + 1);
+    strcpy(now->belong_to_db, current_database->name);
+
     temp.pop_front();
     
     assert(temp.length % 2 == 0);
     while(temp.length != 0){
         elem = temp.front; p = (char*)elem->val;
         FIELD *f = new FIELD();
-        f->name = strdup(p);
+        f->name = (char*)malloc(strlen(p) + 1);
+        memset(f->name, 0, strlen(p) + 1); strcpy(f->name, p); 
+
         temp.pop_front();
         
         elem = temp.front; p = (char*)elem->val;
@@ -467,6 +615,7 @@ void __insert(List *to, ListElement *elem, int type){
 }
 
 /*
+ * 如果执行insert语句向不存在的属性域插入，不会成功，但也不会报错！
  * temp_insert结构：
  * - tableName
  * - If (next val is 0?) List fieldName...., end with another 0
@@ -477,7 +626,7 @@ int temp_insert(){
     
     ListElement *elem = temp.front;
     char *p = (char*)elem->val;
-    ListElement *tableElem = current_database->find_table(p);
+    ListElement *tableElem = current_database->find_table(p, elem->bytes);
     if(tableElem == NULL) return 0;
 
     TABLE *table = (TABLE*)tableElem->val;;
@@ -506,15 +655,16 @@ int temp_insert(){
         temp_value->push_back(p, elem->bytes);
         temp.pop_front();
     }
-
     List *turple = new List;
     ListElement *temp_value_elem, *temp_field_elem, *field_elem;
     if(temp_field->length == 0){
         if(temp_value->length != table->field.length) return 0;
         field_elem = table->field.front;
         temp_value_elem = temp_value->front;
+
         while(temp_value_elem != NULL){
-            __insert(turple, field_elem, ((FIELD*)temp_field_elem->val)->type);
+            __insert(turple, temp_value_elem, ((FIELD*)field_elem->val)->type);
+
             field_elem = field_elem->next;
             temp_value_elem = temp_value_elem->next;
         }
@@ -560,5 +710,217 @@ int temp_insert(){
 
     table->turpleEntry.push_back(turple, sizeof(List));
     table->turpleNumber++;
+    return 1;
+}
+
+/*
+ 显示某一条condition
+*/
+void show_con(ListElement* elem){
+    if(elem->bytes == 1){
+        printf("CMP: %d\n", ((char*)elem->val)[0]);
+    }
+    else if(elem->bytes == 2){
+        printf("constValue: %d\n", ((char*)elem->val)[0]);
+    }
+    else{
+        CONDITION* cond = (CONDITION*)elem->val;
+        char* p;
+        p = (char*)cond->lval; printf("CONDITION: %s ", p);
+        printf("%d ", cond->cmp);
+        p = (char*)cond->rval; printf("%s\n", p);
+    }
+}
+
+/*
+ 显示cons中所有的条件
+*/
+void show_cons(){
+    ListElement* elem = cons.front;
+    while(elem != NULL){
+        show_con(elem);
+        elem = elem->next;
+    }
+}
+
+void clear_cons(){
+    ListElement* elem = cons.front;
+    while(elem != NULL){
+        if(elem->bytes != 1){
+            CONDITION* con = (CONDITION*)elem->val;
+            free(con->lval); free(con->rval);   
+        }
+        elem = elem->next;
+    }
+    cons.clear();
+}
+
+/*
+  利用temp以及cons的信息，查询元组信息 
+    temp结构:
+      - List FieldName, TableName
+    cons结构:
+      - CONDITION和逻辑运算符的后缀表达
+
+  具体实现：
+    - 通过temp更新所有Field的select标记，之后根据select进行输出显示
+    - 遍历所有的元组，根据cons决定该元组是否满足条件，如满足条件加入bufList中
+    - 根据select标记显示bufList
+*/
+int temp_select(){
+    if(current_database == NULL) return 0;
+
+    ListElement *elem; char *p, *q;
+    elem = temp.back; p = (char*)elem->val;
+    elem = current_database->find_table(p, elem->bytes);
+    if(elem == NULL) return 0;
+    TABLE *table = (TABLE*)elem->val;
+
+
+    //更新所有select标记
+    temp.pop_back();
+    ListElement *fieldElem = table->field.front;
+    int all = 0; if(temp.length == 0) all = 1;
+    whlie(fieldElem != NULL){
+        FIELD *f = (FIELD*)fieldElem->val;
+        if(all) f->selected = 1;
+        else{
+            f->selected = 0;
+
+            elem = temp.front;
+            while(elem != NULL){
+                p = (char*)elem->val;
+                q = ((FIELD*)fieldElem->val)->name;
+                if(!strcmp(p, q)){
+                    f->selected = 1;
+                    break;
+                }
+                elem = elem->next;
+            }
+        }
+        
+        fieldElem = fieldElem->next;
+    }
+
+    //获取ok元组
+    List *res = table->check_all_turple();
+    if(res == NULL) return 0;
+
+    //处理出长度对齐信息
+    int *w = (int*)malloc(table->fieldNumber);
+    memset(w, 0, 4 * table->fieldNumber);
+    elem = table->field.front;
+    for(int i = 0; i < table->fieldNumber; i++){
+        FIELD *f = (FIELD*)elem->val;
+        if(f->selected) w[i] = 4 + strlen(f->name);
+        elem = elem->next;
+    }
+
+    elem = res->front;
+    while(elem != NULL){
+        List *turple = (List*)elem->val;
+        ListElement *val = turple->front;
+        ListElement *field_elem = table->field.front;
+        for(int i = 0; i < table->fieldNumber; i++){
+            FIELD* f= (FIELD*)field_elem->val;
+            if(f->selected == 1){
+                if(val->bytes == 0) w[i] = max(w[i], 6 + 4);
+                if(f->type == INT) w[i] = max(w[i], strlen(itoa(*(int*)val->val)) + 6);
+                else if(f->type == CHAR) w[i] = max(w[i], val->bytes + 6);
+                else{
+                    puts("Bad type.");
+                    return 0;
+                }
+            }
+
+            val = val->next;
+            field_elem = field_elem->next;
+        }
+
+        elem = elem->next;
+    }
+
+    //正式开始打印
+    // DEBUG; for(int i = 0; i < table->fieldNumber; i++) printf("%d " ,w[i]); puts("");
+    printf("+");
+    elem = table->field.front;
+    for(int i = 0; i < table->fieldNumber; i++){
+        FIELD *f = (FIELD*)elem->val;
+        if(f->selected == 1){
+            pprt(w[i] - 2, '-'); printf("+");
+        }
+        elem = elem->next;
+    }
+    puts("");
+
+    printf("|");
+    elem = table->field.front;
+    for(int i = 0; i < table->fieldNumber; i++){
+        FIELD *f = (FIELD*)elem->val;
+        if(f->selected == 1){
+            printf(" %s", f->name);
+            pprt(w[i] - 4 - strlen(f->name), ' ');
+            printf(" |");
+        }
+        elem = elem->next;
+    }
+    puts("");
+
+    printf("+");
+    elem = table->field.front;
+    for(int i = 0; i < table->fieldNumber; i++){
+        FIELD *f = (FIELD*)elem->val;
+        if(f->selected == 1){
+            pprt(w[i] - 2, '-'); printf("+");
+        }
+        elem = elem->next;
+    }
+    puts("");
+
+    elem = res->front;
+    while(elem != NULL){
+        List *turple = (List*)elem->val;
+        ListElement *val = turple->front;
+        ListElement *field_elem = table->field.front;
+        printf("|");
+        for(int i = 0; i < table->fieldNumber; i++){
+            FIELD* f= (FIELD*)field_elem->val;
+            if(f->selected == 1){
+                if(val->bytes == 0){
+                    printf(" %s", "(null)");
+                    pprt(w[i] - 4 - 6, ' ');
+                    printf(" |");
+                }
+                else if(f->type == INT){
+                    printf(" %s", itoa(*(int*)val->val));
+                    pprt(w[i] - 4 - strlen(itoa(*(int*)val->val)), ' ');
+                    printf(" |");
+                }
+                else{
+                    printf(" %s", (char*)val->val);
+                    pprt(w[i] - 4 - strlen((char*)val->val), ' ');
+                    printf(" |");
+                }
+            }
+
+            val = val->next;
+            field_elem = field_elem->next;
+        }
+        puts("");
+        elem = elem->next;
+    }
+
+    printf("+");
+    elem = table->field.front;
+    for(int i = 0; i < table->fieldNumber; i++){
+        FIELD *f = (FIELD*)elem->val;
+        if(f->selected == 1){
+            pprt(w[i] - 2, '-'); printf("+");
+        }
+        elem = elem->next;
+    }
+    puts("");
+
+    free(w);
     return 1;
 }

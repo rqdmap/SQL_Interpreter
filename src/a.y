@@ -38,7 +38,11 @@ void yyerror(const char *str){
 %token <str> ID STRING INTEGER
 %type <str> create_database use_database desc_table drop_table drop_database value
 %type <M> datatype
-%type <num> create_table insert
+%type <num> create_table insert select
+
+%left OR
+%left AND
+
 %%
 
 statements:
@@ -48,11 +52,11 @@ statements:
 
 statement: 
     create_database {
-        if(create_database($1)) puts("create_database ok.");
+        if(create_database($1, strlen($1))) puts("create_database ok.");
         else puts("create_database fail.");
     }
     |use_database {
-        if(use_database($1)) puts("use_database ok.");
+        if(use_database($1, strlen($1))) puts("use_database ok.");
         else puts("use_database fail.");
     }
     |create_table {
@@ -68,7 +72,7 @@ statement:
     }
     |desc_table {
         if(current_database == NULL) puts("No database selected!");
-        else current_database->desc_table($1);
+        else current_database->desc_table($1, strlen($1));
     }
     |insert {
         if($1) puts("insert_into ok.");
@@ -76,14 +80,17 @@ statement:
     }
     |delete {printf("Delete something ok\n");}
     |update {printf("Update ok\n");}
-    |select {printf("Select ok\n");}
+    |select {
+        if($1 == 1) puts("Select ok");
+        else puts("Select fail");
+    }
     |drop_table {
         if(current_database == NULL) puts("No database selected!");
-        else if(current_database->drop_table($1) == 0) puts("drop_table fail.");
+        else if(current_database->drop_table($1, strlen($1)) == 0) puts("drop_table fail.");
         else puts("drop_table ok.");
     }
     |drop_database {
-        if(drop_database($1)) puts("drop_database ok.");
+        if(drop_database($1, strlen($1))) puts("drop_database ok.");
         else puts("drop_database fail.");
     }
     |exit {return 0;}
@@ -104,7 +111,6 @@ create_table:
     RB FIN {
         if(temp_create_table() == 0) $$ = 0;
         else $$ = 1;
-        temp.clear();
     }
 fields: 
     field
@@ -142,10 +148,8 @@ insert:
     }
     insert_method 
     FIN {
-        temp.save("out", 0);
         if(temp_insert()) $$ = 1;
         else $$ = 0; 
-        temp.clear();
     }
 
 insert_method:
@@ -187,11 +191,29 @@ conditions:
     WHERE with_conditions
     |
 with_conditions:
-    with_conditions AND with_conditions
-    |with_conditions OR with_conditions
+    with_conditions AND with_conditions {
+        char *p = (char*)malloc(1); p[0] = 1;
+        cons.push_back(p, 1);
+    }
+    |with_conditions OR with_conditions {
+        char *p = (char*)malloc(1); p[0] = 2;
+        cons.push_back(p, 1);
+    }
     |LB with_conditions RB
-    |ID BELOW value
-    |ID EQU value
+    |ID BELOW value {
+        CONDITION *now = new CONDITION;
+        now->lval = $1; now->lbytes = strlen($1);
+        now->rval = $3; now->rbytes = strlen($3);
+        now->cmp = 1;
+        cons.push_back(now, sizeof(CONDITION));
+    }
+    |ID EQU value {
+        CONDITION *now = new CONDITION;
+        now->lval = $1; now->lbytes = strlen($1);
+        now->rval = $3; now->rbytes = strlen($3);
+        now->cmp = 2;
+        cons.push_back(now, sizeof(CONDITION));
+    }
 
 delete:
     DELETE FROM ID conditions FIN;
@@ -207,10 +229,25 @@ set_value:
     ID EQU value
 
 select:
-    SELECT select_what FROM ID conditions FIN
+    SELECT{
+        clear_cons();
+        temp.clear();
+    }
+    select_what
+    FROM ID{
+        temp.push_back($5, strlen($5));
+    }
+    conditions FIN{
+        if(temp_select() == 1) $$ = 1;
+        else $$ = 0;
+    }
 ids:
-    ID
-    |ids COMMA ID
+    ID {
+        temp.push_back($1, strlen($1));
+    }
+    |ids COMMA ID {
+        temp.push_back($3, strlen($3));
+    }
 select_what:
     STAR
     |ids

@@ -20,6 +20,12 @@ Supported funtion:
 #include <string>
 #include "list.h"
 
+struct CONDITION{
+    void *lval, *rval;
+    int lbytes, rbytes;
+    int cmp;
+};
+
 struct FIELD{
     char *name;
     int bytes;
@@ -35,6 +41,8 @@ struct TABLE{
     int fieldNumber, turpleNumber;
     List field, turpleEntry;
 
+    List* check_all_turple();
+    int check_turple(List *turple, ListElement *conElem);
     void desc();
 
     void read();
@@ -45,10 +53,10 @@ struct DATABASE{
     char *name;
     List table;
 
-    ListElement* find_table(const char* tableName);
+    ListElement* find_table(const char* tableName, int bytes);
     void show_tables();
-    int desc_table(const char *tableName);
-    int drop_table(const char *tableName);
+    int desc_table(const char *tableName, int bytes);
+    int drop_table(const char *tableName, int bytes);
     void drop_all_table();
 
     void read();
@@ -61,15 +69,19 @@ void end();
 void read();
 void write();
 
-int create_database(const char* databaseName);
-int use_database(const char* databaseName);
-int drop_database(const char* databaseName);
+int create_database(const char* databaseName, int bytes);
+int use_database(const char* databaseName, int bytes);
+int drop_database(const char* databaseName, int bytes);
 void show_databases();
 
 int temp_create_table();
-
-//如果执行insert语句向不存在的属性域插入，不会成功，但也不会报错！
 int temp_insert();
+int temp_select();
 
-extern List dbs, temp;
+void show_con(ListElement* elem);
+void show_cons();
+void clear_cons();
+
+
+extern List dbs, temp, cons;
 extern DATABASE *current_database;

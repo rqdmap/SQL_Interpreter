@@ -15,6 +15,7 @@ insert into tab values ("id0", "person0", 10);
 insert into tab values ("id1", "person1", 20);
 insert into tab values ("id2", "person2", 30);
 insert into tab values ("id3", "person3", 40);
+insert into tab (id) values("idx");
 
 select * from tab;
 select id, age from tab;

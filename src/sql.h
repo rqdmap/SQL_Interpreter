@@ -24,6 +24,9 @@ struct FIELD{
     char *name;
     int bytes;
     int type;
+
+    //仅仅在执行select操作时使用
+    int selected;
 };
 
 struct TABLE{
@@ -64,6 +67,9 @@ int drop_database(const char* databaseName);
 void show_databases();
 
 int temp_create_table();
+
+//如果执行insert语句向不存在的属性域插入，不会成功，但也不会报错！
+int temp_insert();
 
 extern List dbs, temp;
 extern DATABASE *current_database;

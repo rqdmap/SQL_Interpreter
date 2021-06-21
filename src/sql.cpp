@@ -281,25 +281,27 @@ void DATABASE::drop_all_table(){
 void TABLE::read(){
     std::string fileName = "DBMS/"; fileName += belong_to_db; fileName += "/"; fileName += name; 
     FILE *in = fopen(fileName.c_str(), "rb");
-    fscanf(in, "%d", &fieldNumber);
+    fread(&fieldNumber, 4, 1, in);
     for(int i = 0; i < fieldNumber; i++){
         FIELD *now = new FIELD();
-        fscanf(in, "%s %d %d", buf, &now->bytes, &now->type);
+        int bytes; fread(&bytes, 4, 1, in);
+        fread(buf, bytes, 1, in);
+        fread(&now->bytes, 4, 1, in);
+        fread(&now->type, 4, 1, in);
+
         now->name = strdup(buf);
         field.push_back(now, sizeof(FIELD));
     }
-    fscanf(in, "%d", &turpleNumber);
+    fread(&turpleNumber, 4, 1, in);
     for(int i = 0; i < turpleNumber; i++){
         List *now = new List();
 
-        ListElement *fieldElem;
         for(int j = 0; j < fieldNumber; j++){
-            FIELD *f = (FIELD*)fieldElem->val;
-            void *p = malloc(f->bytes);
-            fread(p, f->bytes, 1, in);
-            now->push_back(p, f->bytes);
-
-            fieldElem = fieldElem->next;
+            void *p; int bytes;
+            fread(&bytes, 4, 1, in);
+            p = malloc(bytes);
+            fread(p, bytes, 1, in);
+            now->push_back(p, bytes);
         }
         turpleEntry.push_back(now, sizeof(List));
     }
@@ -308,19 +310,24 @@ void TABLE::read(){
 void TABLE::write(){
     std::string fileName = "DBMS/"; fileName += belong_to_db; fileName += "/"; fileName += name; 
     FILE *out = fopen(fileName.c_str(), "wb");
-    fprintf(out, "%d\n", fieldNumber);
+    fwrite(&fieldNumber, 4, 1, out);
     ListElement *elem = field.front;
     while(elem != NULL){
         FIELD *now = (FIELD*)elem->val;
-        fprintf(out, "%s %d %d\n", now->name, now->bytes, now->type);
+        int bytes = strlen(now->name);
+        fwrite(&bytes, 4, 1, out);
+        fwrite(now->name, bytes, 1, out);
+        fwrite(&now->bytes, 4, 1, out);
+        fwrite(&now->type, 4, 1, out);
         elem = elem->next;
     }
-    fprintf(out, "%d", turpleNumber);
+    fwrite(&turpleNumber, 4, 1, out);
     elem = turpleEntry.front;
     while(elem != NULL){
         List *now = (List*)elem->val;
         ListElement *temp = now->front;
         while(temp != NULL){
+            fwrite(&temp->bytes, 4, 1, out);
             fwrite(temp->val, temp->bytes, 1, out);
             temp = temp->next;
         }
@@ -387,8 +394,7 @@ void TABLE::desc(){
 /*
  * create_table结构：
  * - tableName
- * - fieldName
- * - fieldType(1 byte) fieldInfomation
+ * - (fieldName, fieldType(1 byte) fieldBytes)+
  */
 int temp_create_table(){
     if(current_database == NULL) return 0;
@@ -422,12 +428,137 @@ int temp_create_table(){
     }
     now->fieldNumber = now->field.length;
 
-    current_database->table.push_back(now, sizeof(TABLE));
+    int ambigious = 0;
+    for(ListElement* i = now->field.front; i != NULL; i = i->next){
+        for(ListElement *j = i->next; j != NULL; j = j->next){
+            if(!strcmp(((FIELD*)i->val)->name, ((FIELD*)j->val)->name)){
+                ambigious = 1;
+                break;
+            }
+        }
+    }
+    if(ambigious) return 0;
 
-    // DEBUG; printf("%d\n", current_database->table.length);
-    // int cnt = 0;
-    // elem = current_database->table.front;
-    // while(elem != NULL) {cnt++; elem = elem->next;}
-    // printf("%d\n", cnt);
+    current_database->table.push_back(now, sizeof(TABLE));
+    return 1;
+}
+
+
+/*
+    将elem指向的内容转换为type要求的格式插入到to中
+*/
+void __insert(List *to, ListElement *elem, int type){
+    if(type == INT){
+        int num = 0;
+        char *p = (char*)elem->val;
+        for(int i = 0; i < elem->bytes; i++){
+            num *= 10;
+            num += p[i] - '0';
+        }
+        to->push_back(&num, 4);
+    }
+    else if(type == CHAR){
+        to->push_back(elem->val, elem->bytes);
+    }
+    else{
+        puts("Bad Type");
+        return ;
+    }
+}
+
+/*
+ * temp_insert结构：
+ * - tableName
+ * - If (next val is 0?) List fieldName...., end with another 0
+ * - List values...
+ */
+int temp_insert(){
+    if(current_database == NULL) return 0;
+    
+    ListElement *elem = temp.front;
+    char *p = (char*)elem->val;
+    ListElement *tableElem = current_database->find_table(p);
+    if(tableElem == NULL) return 0;
+
+    TABLE *table = (TABLE*)tableElem->val;;
+    temp.pop_front();
+    elem = temp.front; p = (char*)elem->val;
+    
+    List *temp_field, *temp_value;
+    temp_field = new List; temp_value = new List;
+    //指定Field插入，解析出Field信息并存入temp_field
+    if(elem->bytes == 1 && p[0] == 0){
+        temp.pop_front();
+        while(1){
+            elem = temp.front; p = (char*)elem->val;
+            //终止
+            if(elem->bytes == 1 && p[0] == 0){
+                temp.pop_front();
+                break;
+            }
+            temp_field->push_back(p, elem->bytes);
+            temp.pop_front();
+        }
+    }
+    //读取剩余的value信息
+    while(temp.front != NULL){
+        elem = temp.front; p = (char*)elem->val;
+        temp_value->push_back(p, elem->bytes);
+        temp.pop_front();
+    }
+
+    List *turple = new List;
+    ListElement *temp_value_elem, *temp_field_elem, *field_elem;
+    if(temp_field->length == 0){
+        if(temp_value->length != table->field.length) return 0;
+        field_elem = table->field.front;
+        temp_value_elem = temp_value->front;
+        while(temp_value_elem != NULL){
+            __insert(turple, field_elem, ((FIELD*)temp_field_elem->val)->type);
+            field_elem = field_elem->next;
+            temp_value_elem = temp_value_elem->next;
+        }
+    }
+    else{
+        if(temp_value->length != temp_field->length) return 0;
+
+        //按顺序针对每一个Field，检查是否出现在insert列表中
+        field_elem = table->field.front;
+        while(field_elem != NULL){
+            temp_value_elem = temp_value->front;
+            temp_field_elem = temp_field->front;
+            int ok = 0;
+            while(temp_field_elem != NULL){
+                FIELD* f = (FIELD*)field_elem->val;
+                if(!strcmp((char*)(temp_field_elem->val), f->name)){
+                    ok = 1;
+                   __insert(turple, temp_value_elem, f->type);
+                   break;
+                }
+                temp_value_elem = temp_value_elem->next;
+                temp_field_elem = temp_field_elem->next;
+            }
+            if(!ok){
+                void *p;
+                turple->push_back(p, 0);
+            }
+            field_elem = field_elem->next;
+        }
+    }
+
+    // DEBUG;
+    // elem = turple->front;
+    // field_elem = table->field.front;
+    // printf("Turple Length: %d\n", turple->length);
+    // while(elem != NULL){
+    //     FIELD* f = (FIELD*)field_elem->val;
+    //     if(f->type == INT) printf("%d %d\n", elem->bytes, *(int*)elem->val);
+    //     else if(f->type == CHAR) printf("%d %s\n", elem->bytes, (char*)elem->val);
+    //     elem = elem->next;
+    //     field_elem = field_elem->next;
+    // }
+
+    table->turpleEntry.push_back(turple, sizeof(List));
+    table->turpleNumber++;
     return 1;
 }

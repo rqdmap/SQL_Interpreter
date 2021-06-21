@@ -36,9 +36,9 @@ void yyerror(const char *str){
 %token CREATE DATABASE DATABASES USE TABLE TABLES SHOW DESC INSERT INTO VALUES SELECT UPDATE DELETE DROP EXIT INT DOUBLE CHAR AND OR FROM WHERE SET
 %token FIN LB RB COMMA BELOW EQU STAR QM
 %token <str> ID STRING INTEGER
-%type <str> create_database use_database desc_table drop_table drop_database
+%type <str> create_database use_database desc_table drop_table drop_database value
 %type <M> datatype
-%type <num> create_table
+%type <num> create_table insert
 %%
 
 statements:
@@ -70,16 +70,21 @@ statement:
         if(current_database == NULL) puts("No database selected!");
         else current_database->desc_table($1);
     }
-    |insert {printf("insert with method\n");}
+    |insert {
+        if($1) puts("insert_into ok.");
+        else puts("insert_into fail.");
+    }
     |delete {printf("Delete something ok\n");}
     |update {printf("Update ok\n");}
     |select {printf("Select ok\n");}
     |drop_table {
         if(current_database == NULL) puts("No database selected!");
-        else current_database->drop_table($1);
+        else if(current_database->drop_table($1) == 0) puts("drop_table fail.");
+        else puts("drop_table ok.");
     }
     |drop_database {
-        drop_database($1);
+        if(drop_database($1)) puts("drop_database ok.");
+        else puts("drop_database fail.");
     }
     |exit {return 0;}
     ;
@@ -92,6 +97,7 @@ use_database:
     
 create_table:
     CREATE TABLE ID LB {
+        temp.clear();
         temp.push_back($3, strlen($3));
     }
     fields
@@ -130,24 +136,52 @@ show_databases: SHOW DATABASES FIN
 desc_table: DESC ID FIN {$$ = $2;}
 
 insert: 
-    INSERT INTO ID 
+    INSERT INTO ID {
+        temp.clear();
+        temp.push_back($3, strlen($3));
+    }
     insert_method 
-    FIN 
+    FIN {
+        temp.save("out", 0);
+        if(temp_insert()) $$ = 1;
+        else $$ = 0; 
+        temp.clear();
+    }
 
 insert_method:
-    LB cols RB insert_values 
+    LB {
+        char *p = (char*)malloc(1); p[0] = 0;
+        temp.push_back(p, 1);
+    }
+    cols RB {
+        char *p = (char*)malloc(1); p[0] = 0;
+        temp.push_back(p, 1);
+    }
+    insert_values 
     |insert_values 
 cols:
-    ID|
-    cols COMMA ID
+    ID {
+        temp.push_back($1, strlen($1));
+    }
+    |cols COMMA ID {
+        temp.push_back($3, strlen($3));
+    }
 insert_values:
     VALUES LB values RB
 values:
-    value
-    |values COMMA value
+    value {
+        temp.push_back($1, strlen($1));
+    }
+    |values COMMA value {
+        temp.push_back($3, strlen($3));
+    }
 value:
-    INTEGER
-    |STRING
+    INTEGER {
+        $$ = $1;
+    }
+    |STRING {
+        $$ = $1;
+    }
 
 conditions:
     WHERE with_conditions

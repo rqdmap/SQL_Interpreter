@@ -9,4 +9,4 @@ show databases;
 show tables;
 desc MyTable;
 
-drop database MyDataBase;
+insert into MyTable (name) values("orz");

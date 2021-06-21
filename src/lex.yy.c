@@ -936,56 +936,58 @@ case 28:
 YY_RULE_SETUP
 #line 79 "a.l"
 {
+    // yylval.str = strdup(yytext + 1);
+    // yylval.str[strlen(yylval.str) - 1] = 0;
     yylval.str = strdup(yytext);
     return STRING;
 }
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 84 "a.l"
+#line 86 "a.l"
 {return FIN;}
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 85 "a.l"
+#line 87 "a.l"
 {return LB;}
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 86 "a.l"
+#line 88 "a.l"
 {return RB;}
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 87 "a.l"
+#line 89 "a.l"
 {return COMMA;}
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 88 "a.l"
+#line 90 "a.l"
 {return QM;}
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 89 "a.l"
+#line 91 "a.l"
 {return BELOW;}
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 90 "a.l"
+#line 92 "a.l"
 {return EQU;}
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 91 "a.l"
+#line 93 "a.l"
 {return STAR;}
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 93 "a.l"
+#line 95 "a.l"
 ECHO;
 	YY_BREAK
-#line 989 "lex.yy.c"
+#line 991 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1990,7 +1992,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 93 "a.l"
+#line 95 "a.l"
 
 // {digits}{optional_fraction}{optional_exponent} return NUMBER;
 /* int main(){

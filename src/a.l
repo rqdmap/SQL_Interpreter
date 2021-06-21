@@ -77,6 +77,8 @@ or [oO][rR]|\|\|
 }
 
 {string} {
+    // yylval.str = strdup(yytext + 1);
+    // yylval.str[strlen(yylval.str) - 1] = 0;
     yylval.str = strdup(yytext);
     return STRING;
 }

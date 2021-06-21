@@ -4,3 +4,9 @@ create table MyTable(
     age int, 
     name char(100)
 );
+
+show databases;
+show tables;
+desc MyTable;
+
+drop database MyDataBase;

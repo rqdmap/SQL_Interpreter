@@ -3,7 +3,7 @@
 Supported funtion:
 1. create database
 2. use database
-3. create table, typeOptions: [int | varchar | double]
+3. create table, typeOptions: [int | varchar]
 4. show tables & desc & show databases
 5. insert
 6. delete
@@ -32,6 +32,8 @@ struct TABLE{
     int fieldNumber, turpleNumber;
     List field, turpleEntry;
 
+    void desc();
+
     void read();
     void write();
 };
@@ -41,6 +43,10 @@ struct DATABASE{
     List table;
 
     ListElement* find_table(const char* tableName);
+    void show_tables();
+    int desc_table(const char *tableName);
+    int drop_table(const char *tableName);
+    void drop_all_table();
 
     void read();
     void write();
@@ -55,6 +61,7 @@ void write();
 int create_database(const char* databaseName);
 int use_database(const char* databaseName);
 int drop_database(const char* databaseName);
+void show_databases();
 
 int temp_create_table();
 

@@ -3,7 +3,7 @@
 Supported funtion:
 1. create database
 2. use database
-3. create table, typeOptions: [int | varchar | double]
+3. create table, typeOptions: [int | varchar]
 4. show tables & desc & show databases
 5. insert
 6. delete
@@ -36,7 +36,7 @@ void yyerror(const char *str){
 %token CREATE DATABASE DATABASES USE TABLE TABLES SHOW DESC INSERT INTO VALUES SELECT UPDATE DELETE DROP EXIT INT DOUBLE CHAR AND OR FROM WHERE SET
 %token FIN LB RB COMMA BELOW EQU STAR QM
 %token <str> ID STRING INTEGER
-%type <str> create_database use_database
+%type <str> create_database use_database desc_table drop_table drop_database
 %type <M> datatype
 %type <num> create_table
 %%
@@ -59,16 +59,29 @@ statement:
         if($1) puts("create_table ok.");
         else puts("create_table fail.");
     }
-    |show_databases {printf("show_databases\n");}
-    |show_tables {printf("show_tables\n");}
-    |desc_table {printf("desc table\n");}
+    |show_databases {
+        show_databases();
+    }
+    |show_tables {
+        if(current_database == NULL) puts("No database selected!");
+        else current_database->show_tables();
+    }
+    |desc_table {
+        if(current_database == NULL) puts("No database selected!");
+        else current_database->desc_table($1);
+    }
     |insert {printf("insert with method\n");}
     |delete {printf("Delete something ok\n");}
     |update {printf("Update ok\n");}
     |select {printf("Select ok\n");}
-    |drop_table {printf("drop_table\n");}
-    |drop_database {printf("drop_database\n");}
-    |exit {puts("Bye");}
+    |drop_table {
+        if(current_database == NULL) puts("No database selected!");
+        else current_database->drop_table($1);
+    }
+    |drop_database {
+        drop_database($1);
+    }
+    |exit {return 0;}
     ;
 
 create_database:
@@ -114,7 +127,7 @@ show_tables: SHOW TABLES FIN
 
 show_databases: SHOW DATABASES FIN
 
-desc_table: DESC TABLE ID FIN 
+desc_table: DESC ID FIN {$$ = $2;}
 
 insert: 
     INSERT INTO ID 
@@ -169,19 +182,18 @@ select_what:
     |ids
     
 drop_table:
-    DROP TABLE ID FIN
+    DROP TABLE ID FIN {$$ = $3;}
 
-drop_database:
-    DROP DATABASE ID FIN
+drop_database: 
+    DROP DATABASE ID FIN {$$ = $3;}
 
 exit:
-    EXIT FIN
+    EXIT 
 %%
 
 int main(){
     start();
     yyparse();
     end();
-    
     return 0;
 }

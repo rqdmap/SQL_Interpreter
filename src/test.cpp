@@ -2,6 +2,6 @@
 #include "sql.h"
 
 int main(){
-    puts("ORZ");
+    printf("%s %5s\n", "12345", "END");
     return 0;
 }

@@ -66,9 +66,10 @@ struct DATABASE{
 void start();
 void end();
 
+
+extern List dbs;
 void read();
 void write();
-
 int create_database(const char* databaseName, int bytes);
 int use_database(const char* databaseName, int bytes);
 int drop_database(const char* databaseName, int bytes);
@@ -83,5 +84,6 @@ void show_cons();
 void clear_cons();
 
 
-extern List dbs, temp, cons;
+
+extern List temp, cons;
 extern DATABASE *current_database;

@@ -100,7 +100,7 @@ create_database:
     CREATE DATABASE ID FIN {$$ = $3;}
 
 use_database:
-    USE DATABASE ID FIN {$$ = $3;}
+    USE ID FIN {$$ = $2;}
     
 create_table:
     CREATE TABLE ID LB {

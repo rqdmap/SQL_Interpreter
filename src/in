@@ -1,6 +1,6 @@
 create database db;
 show databases;
-use database db;
+use db;
 
 create table tab(
     id char(100),
@@ -23,5 +23,8 @@ select * from tab where age < 20;
 select * from tab where (age < 20);
 select * from tab where age < 20 OR id < "id3";
 select * from tab where (age < 20 OR id < "id3") AND name = "person2";
+
+update tab set id = "idx";
+update tab set id = "idx" where id < "id2";
 
 exit

@@ -290,7 +290,7 @@ void DATABASE::drop_all_table(){
 /*
  * .每一张数据表的结构：
  * - 属性域的数量
- * - List 属性域
+ * - List 属性域信息
  * - 元组的数量
  * - List Turple
  */
